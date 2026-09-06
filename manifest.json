@@ -2,12 +2,12 @@
   "name": "Alongside",
   "short_name": "Alongside",
   "description": "Watch YouTube together, in sync, with chat.",
-  "start_url": "./index.html",
+  "start_url": "./index2.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#1a1918",
   "theme_color": "#1a1918",
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "icon2.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
 }
