@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Alongside</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<meta name="theme-color" content="#1a1918" />
+<style>
+  :root{
+    --bg:#1a1918; --surface:#242220; --surface-2:#2c2925;
+    --text:#e9e5df; --text-muted:#93897d; --accent:#c9974c; --accent-text:#1a1512; --ok:#7c9b6f;
+  }
+  html[data-theme="light"]{
+    --bg:#f5f1ea; --surface:#e8e2d6; --surface-2:#d9d1c0;
+    --text:#2a2620; --text-muted:#7a7266; --accent:#b5651d; --accent-text:#fff8ef; --ok:#4f7a3d;
+  }
+  html[data-theme="midnight"]{
+    --bg:#0d1220; --surface:#161d2e; --surface-2:#202a3f;
+    --text:#dbe4f5; --text-muted:#7c8aa8; --accent:#6f8fd6; --accent-text:#0d1220; --ok:#6fa88f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden;
+  }
+  button { border: none; cursor: pointer; font-family: inherit; background: none; }
+
+  /* ---------- Setup ---------- */
+  #setup { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  #setup .card { width: 100%; max-width: 360px; }
+  #setup h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+  #setup p { color: var(--text-muted); font-size: 14px; line-height: 1.5; margin: 0 0 24px; }
+  label { display: block; font-size: 13px; color: var(--text-muted); margin: 16px 0 6px; }
+  input[type=text] {
+    width: 100%; background: var(--surface); border: 1px solid var(--surface-2);
+    color: var(--text); padding: 12px 14px; border-radius: 10px; font-size: 15px; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  #setup button {
+    margin-top: 24px; width: 100%; background: var(--accent); color: var(--accent-text);
+    padding: 13px; border-radius: 10px; font-size: 15px; font-weight: 600;
+  }
+
+  /* ---------- Main ---------- */
+  #main { flex: 1; display: none; flex-direction: column; min-height: 0; position: relative; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--surface); flex-shrink: 0; position: relative;
+  }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+  .dot.ok { background: var(--ok); } .dot.waiting { background: var(--accent); }
+  .status-text { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-text b { color: var(--text); font-weight: 600; }
+  #menuBtn { color: var(--text-muted); font-size: 20px; padding: 2px 8px; flex-shrink: 0; }
+  #menuPanel {
+    display: none; position: absolute; top: 46px; right: 10px; background: var(--surface);
+    border: 1px solid var(--surface-2); border-radius: 10px; overflow: hidden; z-index: 30;
+    min-width: 190px; box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  }
+  #menuPanel button { display: block; width: 100%; text-align: left; padding: 12px 14px; color: var(--text); font-size: 14px; }
+  #menuPanel button:hover { background: var(--surface-2); }
+
+  #videoBox { position: relative; width: 100%; padding-top: 56.25%; background: #000; flex-shrink: 0; }
+  body.chat-floating #videoBox { flex: 1 1 auto; padding-top: 0; }
+  #videoBox iframe, #ytplayer { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #videoPlaceholder {
+    position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px;
+    align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px;
+    padding: 20px; text-align: center; background: #000;
+  }
+  #videoPlaceholder button {
+    background: var(--accent); color: var(--accent-text); padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  }
+  #reactionLayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 6; }
+  .reaction-pop { position: absolute; bottom: 10px; font-size: 30px; animation: floatUp 1.4s ease-out forwards; }
+  @keyframes floatUp { to { transform: translateY(-90px); opacity: 0; } }
+
+  #addVideoBtn {
+    position: absolute; top: 10px; right: 10px; z-index: 7; width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(0,0,0,0.55); color: #fff; font-size: 20px; line-height: 1;
+  }
+  #rewindBtn {
+    position: absolute; bottom: 10px; left: 10px; z-index: 7; background: rgba(0,0,0,0.55); color: #fff;
+    padding: 6px 12px; border-radius: 16px; font-size: 12px;
+  }
+  #videoDrawer {
+    display: none; position: absolute; top: 50px; right: 10px; z-index: 7; background: var(--surface);
+    border: 1px solid var(--surface-2); border-radius: 10px; padding: 10px; width: 240px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  }
+  #videoDrawer .row { display: flex; gap: 6px; margin-bottom: 8px; }
+  #videoDrawer .row:last-child { margin-bottom: 0; }
+  #videoDrawer input {
+    flex: 1; background: var(--bg); border: 1px solid var(--surface-2); color: var(--text);
+    padding: 8px 10px; border-radius: 8px; font-size: 12px; outline: none;
+  }
+  #videoDrawer button { background: var(--accent); color: var(--accent-text); padding: 8px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+
+  #toast {
+    display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.7); color: #fff; padding: 6px 14px; border-radius: 16px; font-size: 12px; z-index: 8;
+  }
+
+  #messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 6px; min-height: 60px; }
+  .sender-label { font-size: 11px; color: var(--text-muted); margin: 6px 0 -2px 2px; }
+  .bubble { max-width: 78%; padding: 9px 13px; line-height: 1.4; font-size: 15px; word-wrap: break-word; white-space: pre-wrap; }
+  .bubble .meta { display: block; font-size: 11px; margin-top: 3px; opacity: 0.6; }
+  .bubble .pin { display: block; font-size: 12px; font-weight: 600; text-decoration: underline; cursor: pointer; margin-bottom: 3px; }
+  .bubble.me { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-radius: 14px 14px 3px 14px; }
+  .bubble.them { align-self: flex-start; background: var(--surface); color: var(--text); border-radius: 14px 14px 14px 3px; }
+  .system-note { align-self: center; color: var(--text-muted); font-size: 12px; padding: 4px 0; }
+  #typingIndicator { display: none; font-size: 12px; color: var(--text-muted); padding: 0 14px 4px; font-style: italic; }
+
+  #reactionBar { display: flex; gap: 6px; padding: 6px 12px 0; flex-shrink: 0; }
+  #reactionBar button { font-size: 20px; padding: 2px 6px; }
+
+  #composer { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--surface); flex-shrink: 0; align-items: center; }
+  #pinBtn { font-size: 18px; color: var(--text-muted); padding: 6px; flex-shrink: 0; }
+  #pinBtn.active { color: var(--accent); }
+  #composer input {
+    flex: 1; background: var(--surface); border: 1px solid var(--surface-2); color: var(--text);
+    padding: 11px 14px; border-radius: 20px; font-size: 15px; outline: none;
+  }
+  #composer input:focus { border-color: var(--accent); }
+  #composer button[type=submit] {
+    background: var(--accent); color: var(--accent-text); width: 44px; height: 44px; border-radius: 50%; font-size: 18px; flex-shrink: 0;
+  }
+
+  body.chat-floating #messages, body.chat-floating #composer, body.chat-floating #typingIndicator, body.chat-floating #reactionBar {
+    position: absolute; left: 0; right: 0; z-index: 5; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px);
+  }
+  body.chat-floating #messages { bottom: 116px; max-height: 42%; border-radius: 12px 12px 0 0; margin: 0 8px; }
+  body.chat-floating #reactionBar { bottom: 64px; margin: 0 8px; }
+  body.chat-floating #typingIndicator { bottom: 108px; margin: 0 8px; }
+  body.chat-floating #composer { bottom: 0; margin: 0 8px 8px; border-radius: 20px; border-top: none; }
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <div class="card">
+    <h1>Alongside</h1>
+    <p>Watch YouTube together, in sync, with chat built in. No server, no database.</p>
+    <label for="nameInput">Your name</label>
+    <input type="text" id="nameInput" />
+    <label for="roomInput">Room name (share this with your friend)</label>
+    <input type="text" id="roomInput" />
+    <button id="enterBtn">Enter</button>
+  </div>
+</div>
+
+<div id="main">
+  <header>
+    <div class="status">
+      <span class="dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">Connecting…</span>
+    </div>
+    <button id="menuBtn">⋯</button>
+    <div id="menuPanel">
+      <button id="themeBtn" type="button">Theme</button>
+      <button id="lockBtn" type="button">Lock controls</button>
+      <button id="floatBtn" type="button">Floating chat</button>
+      <button id="exportBtn" type="button">Export chat + history</button>
+      <button id="leaveBtn" type="button">Leave</button>
+    </div>
+  </header>
+
+  <div id="videoBox">
+    <div id="videoPlaceholder">Tap + to paste a YouTube link</div>
+    <div id="ytplayer"></div>
+    <div id="reactionLayer"></div>
+    <div id="toast"></div>
+    <button id="addVideoBtn" title="Add a video">+</button>
+    <button id="rewindBtn" type="button" title="Rewind 10s for both">⟲ 10s</button>
+    <div id="videoDrawer">
+      <div class="row"><input type="text" id="linkInput" placeholder="Paste a YouTube link" autocomplete="off" /><button id="loadBtn" type="button">Load</button></div>
+      <div class="row"><input type="text" id="queueInput" placeholder="Queue next (optional)" autocomplete="off" /><button id="queueBtn" type="button">Add</button></div>
+    </div>
+  </div>
+
+  <div id="messages"></div>
+  <div id="typingIndicator"></div>
+  <div id="reactionBar">
+    <button type="button" data-emoji="👍">👍</button>
+    <button type="button" data-emoji="❤️">❤️</button>
+    <button type="button" data-emoji="😂">😂</button>
+    <button type="button" data-emoji="🔥">🔥</button>
+    <button type="button" data-emoji="😮">😮</button>
+  </div>
+  <form id="composer">
+    <button type="button" id="pinBtn" title="Attach current video moment">📍</button>
+    <input type="text" id="msgInput" placeholder="Type a message…" autocomplete="off" />
+    <button type="submit" id="sendBtn">→</button>
+  </form>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(function(){
+  const setupEl = document.getElementById('setup');
+  const mainEl = document.getElementById('main');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const messagesEl = document.getElementById('messages');
+  const composer = document.getElementById('composer');
+  const msgInput = document.getElementById('msgInput');
+  const exportBtn = document.getElementById('exportBtn');
+  const leaveBtn = document.getElementById('leaveBtn');
+  const themeBtn = document.getElementById('themeBtn');
+  const lockBtn = document.getElementById('lockBtn');
+  const floatBtn = document.getElementById('floatBtn');
+  const menuBtn = document.getElementById('menuBtn');
+  const menuPanel = document.getElementById('menuPanel');
+  const linkInput = document.getElementById('linkInput');
+  const loadBtn = document.getElementById('loadBtn');
+  const queueInput = document.getElementById('queueInput');
+  const queueBtn = document.getElementById('queueBtn');
+  const addVideoBtn = document.getElementById('addVideoBtn');
+  const videoDrawer = document.getElementById('videoDrawer');
+  const rewindBtn = document.getElementById('rewindBtn');
+  const videoPlaceholder = document.getElementById('videoPlaceholder');
+  const toastEl = document.getElementById('toast');
+  const typingIndicator = document.getElementById('typingIndicator');
+  const pinBtn = document.getElementById('pinBtn');
+
+  function closeMenu(){ menuPanel.style.display = 'none'; }
+  menuBtn.addEventListener('click', () => { menuPanel.style.display = menuPanel.style.display === 'block' ? 'none' : 'block'; });
+  addVideoBtn.addEventListener('click', () => { videoDrawer.style.display = videoDrawer.style.display === 'block' ? 'none' : 'block'; });
+
+  // ---------- Theme ----------
+  const themes = ['dark', 'light', 'midnight'];
+  let themeIdx = Math.max(0, themes.indexOf(localStorage.getItem('wt_theme') || 'dark'));
+  document.documentElement.setAttribute('data-theme', themes[themeIdx]);
+  themeBtn.addEventListener('click', () => {
+    themeIdx = (themeIdx + 1) % themes.length;
+    document.documentElement.setAttribute('data-theme', themes[themeIdx]);
+    localStorage.setItem('wt_theme', themes[themeIdx]);
+    closeMenu();
+  });
+
+  // ---------- Floating chat ----------
+  if (localStorage.getItem('wt_chatmode') === 'float') document.body.classList.add('chat-floating');
+  floatBtn.addEventListener('click', () => {
+    document.body.classList.toggle('chat-floating');
+    localStorage.setItem('wt_chatmode', document.body.classList.contains('chat-floating') ? 'float' : 'dock');
+    closeMenu();
+  });
+
+  // ---------- Identity + room ----------
+  let myName = localStorage.getItem('wt_name') || '';
+  let roomRaw = localStorage.getItem('wt_room') || '';
+  let roomId, peer, conn, friendName = 'Friend', myRole, amHost = false, hostId, joinId;
+
+  document.getElementById('nameInput').value = myName;
+  document.getElementById('roomInput').value = roomRaw;
+
+  document.getElementById('enterBtn').addEventListener('click', () => {
+    const n = document.getElementById('nameInput').value.trim();
+    const r = document.getElementById('roomInput').value.trim();
+    if (!n || !r) { alert('Fill in both fields.'); return; }
+    myName = n; roomRaw = r;
+    localStorage.setItem('wt_name', myName);
+    localStorage.setItem('wt_room', roomRaw);
+    startRoom();
+  });
+
+  leaveBtn.addEventListener('click', () => {
+    if (conn) conn.close();
+    if (peer) peer.destroy();
+    localStorage.removeItem('wt_room');
+    location.reload();
+  });
+
+  function sanitize(s){ return s.toLowerCase().replace(/[^a-z0-9]/g, ''); }
+  function setStatus(state, text){ statusDot.className = 'dot ' + state; statusText.innerHTML = text; }
+  function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function fmtTime(s){ s = Math.floor(s); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
+  function showToast(text){
+    toastEl.textContent = text; toastEl.style.display = 'block';
+    clearTimeout(toastEl._h);
+    toastEl._h = setTimeout(() => { toastEl.style.display = 'none'; }, 2200);
+  }
+
+  // ---------- History ----------
+  function historyKey(){ return 'wt_history_' + roomId; }
+  function loadHistory(){ const raw = localStorage.getItem(historyKey()); return raw ? JSON.parse(raw) : []; }
+  function saveHistory(list){ localStorage.setItem(historyKey(), JSON.stringify(list)); }
+  function watchedKey(){ return 'wt_watched_' + roomId; }
+  function logWatched(id){
+    const list = JSON.parse(localStorage.getItem(watchedKey()) || '[]');
+    list.push({videoId: id, time: Date.now()});
+    localStorage.setItem(watchedKey(), JSON.stringify(list));
+  }
+
+  let lastFrom = null;
+  function renderBubble(msg){
+    if (msg.system) {
+      const div = document.createElement('div'); div.className = 'system-note'; div.textContent = msg.text;
+      messagesEl.appendChild(div); lastFrom = null;
+    } else {
+      if (msg.from === 'them' && lastFrom !== 'them') {
+        const label = document.createElement('div'); label.className = 'sender-label'; label.textContent = friendName;
+        messagesEl.appendChild(label);
+      }
+      const div = document.createElement('div');
+      div.className = 'bubble ' + (msg.from === 'me' ? 'me' : 'them');
+      const time = new Date(msg.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      let inner = '';
+      if (msg.atTime != null) inner += '<span class="pin" data-t="' + msg.atTime + '">📍 ' + fmtTime(msg.atTime) + '</span>';
+      inner += escapeHtml(msg.text) + '<span class="meta">' + time + '</span>';
+      div.innerHTML = inner;
+      messagesEl.appendChild(div);
+      lastFrom = msg.from;
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addMessage(msg, persist){
+    renderBubble(msg);
+    if (persist) { const h = loadHistory(); h.push(msg); saveHistory(h); }
+  }
+
+  messagesEl.addEventListener('click', e => {
+    const pin = e.target.closest('.pin');
+    if (!pin || !player || !playerReady) return;
+    const t = parseFloat(pin.dataset.t);
+    applyingRemote = true;
+    player.seekTo(t, true);
+    const playing = player.getPlayerState() === YT.PlayerState.PLAYING;
+    lastState = {playing, time: t};
+    if (conn && conn.open) conn.send({type: 'state', playing, time: t});
+    setTimeout(() => { applyingRemote = false; }, 600);
+  });
+
+  // ---------- Connection ----------
+  function startRoom(){
+    roomId = sanitize(roomRaw);
+    setupEl.style.display = 'none';
+    mainEl.style.display = 'flex';
+    loadHistory().forEach(m => renderBubble(m));
+
+    hostId = 'wtv1-' + roomId + '-a';
+    joinId = 'wtv1-' + roomId + '-b';
+
+    setStatus('waiting', 'Connecting…');
+    peer = new Peer(hostId);
+
+    peer.on('open', () => {
+      amHost = true; myRole = 'a';
+      setStatus('waiting', 'Waiting for your friend to join…');
+      peer.on('connection', c => { conn = c; wireConnection(); });
+    });
+
+    peer.on('error', err => {
+      if (err.type === 'unavailable-id') {
+        amHost = false; myRole = 'b';
+        peer = new Peer(joinId);
+        peer.on('open', () => {
+          setStatus('waiting', 'Connecting to your friend…');
+          conn = peer.connect(hostId);
+          wireConnection();
+        });
+        peer.on('error', () => setStatus('', 'Connection error. Try Leave, then reopen the app.'));
+      } else {
+        setStatus('', 'Connection error. Check your internet and try again.');
+      }
+    });
+  }
+
+  function wireConnection(){
+    conn.on('open', () => {
+      conn.send({type: 'hello', name: myName});
+      setStatus('ok', 'Connected');
+    });
+    conn.on('data', data => {
+      if (data.type === 'hello') {
+        friendName = data.name || 'Friend';
+        setStatus('ok', 'Watching with <b>' + escapeHtml(friendName) + '</b>');
+      } else if (data.type === 'chat') {
+        addMessage({text: data.text, time: data.time, from: 'them', atTime: data.atTime}, true);
+      } else if (data.type === 'load') {
+        loadVideo(data.videoId, false);
+      } else if (data.type === 'state') {
+        applyRemoteState(data.playing, data.time, data.note);
+      } else if (data.type === 'reaction') {
+        showReaction(data.emoji);
+      } else if (data.type === 'typing') {
+        typingIndicator.style.display = 'block';
+        typingIndicator.textContent = friendName + ' is typing…';
+        clearTimeout(typingIndicator._h);
+        typingIndicator._h = setTimeout(() => { typingIndicator.style.display = 'none'; }, 2000);
+      } else if (data.type === 'lock') {
+        lockState = {locked: data.locked, by: data.by, name: data.name};
+        updateLockUI();
+        if (data.locked) showToast(data.name + ' locked playback controls');
+      }
+    });
+    conn.on('close', () => {
+      setStatus('waiting', 'Reconnecting…');
+      if (!amHost) setTimeout(() => { if (peer && !peer.destroyed) { conn = peer.connect(hostId); wireConnection(); } }, 3000);
+    });
+  }
+
+  composer.addEventListener('submit', e => {
+    e.preventDefault();
+    const text = msgInput.value.trim();
+    if (!text) return;
+    const msg = {text, time: Date.now(), from: 'me'};
+    if (pinEnabled && player && playerReady) {
+      msg.atTime = player.getCurrentTime();
+      pinEnabled = false; pinBtn.classList.remove('active');
+    }
+    if (conn && conn.open) conn.send({type: 'chat', text: msg.text, time: msg.time, atTime: msg.atTime});
+    addMessage(msg, true);
+    msgInput.value = '';
+  });
+
+  let typingSendTimer = 0;
+  msgInput.addEventListener('input', () => {
+    const now = Date.now();
+    if (now - typingSendTimer > 1200 && conn && conn.open) { conn.send({type: 'typing'}); typingSendTimer = now; }
+  });
+
+  let pinEnabled = false;
+  pinBtn.addEventListener('click', () => { pinEnabled = !pinEnabled; pinBtn.classList.toggle('active', pinEnabled); });
+
+  document.querySelectorAll('#reactionBar button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const emoji = btn.dataset.emoji;
+      showReaction(emoji);
+      if (conn && conn.open) conn.send({type: 'reaction', emoji});
+    });
+  });
+  function showReaction(emoji){
+    const el = document.createElement('span');
+    el.className = 'reaction-pop'; el.textContent = emoji;
+    el.style.left = (10 + Math.random() * 70) + '%';
+    document.getElementById('reactionLayer').appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+  }
+
+  exportBtn.addEventListener('click', () => {
+    const h = loadHistory();
+    const chatLines = h.map(m => {
+      const who = m.from === 'me' ? myName : friendName;
+      const pin = m.atTime != null ? ' [at ' + fmtTime(m.atTime) + ']' : '';
+      return '[' + new Date(m.time).toLocaleString() + '] ' + who + ': ' + m.text + pin;
+    }).join('\n');
+    const watched = JSON.parse(localStorage.getItem(watchedKey()) || '[]');
+    const watchedLines = watched.map(w => '[' + new Date(w.time).toLocaleString() + '] youtube.com/watch?v=' + w.videoId).join('\n');
+    const full = 'CHAT\n' + (chatLines || '(none)') + '\n\nVIDEOS WATCHED\n' + (watchedLines || '(none)');
+    const blob = new Blob([full], {type: 'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'alongside-' + roomId + '-' + Date.now() + '.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+    closeMenu();
+  });
+
+  // ---------- Lock controls ----------
+  let lockState = {locked: false, by: null, name: ''};
+  function updateLockUI(){
+    lockBtn.textContent = lockState.locked
+      ? ('Unlock (' + (lockState.by === myRole ? 'you' : lockState.name) + ')')
+      : 'Lock controls';
+  }
+  lockBtn.addEventListener('click', () => {
+    lockState = {locked: !lockState.locked, by: myRole, name: myName};
+    if (conn && conn.open) conn.send({type: 'lock', locked: lockState.locked, by: myRole, name: myName});
+    updateLockUI();
+    closeMenu();
+  });
+
+  // ---------- YouTube sync ----------
+  let player, playerReady = false, pendingVideoId = null, applyingRemote = false, queuedVideoId = null;
+  let lastState = {playing: false, time: 0};
+  let loadTimeoutHandle = null;
+
+  window.onYouTubeIframeAPIReady = function(){
+    player = new YT.Player('ytplayer', {
+      height: '100%', width: '100%',
+      playerVars: { rel: 0, playsinline: 1 },
+      events: {
+        onReady: () => { playerReady = true; if (pendingVideoId) { player.loadVideoById(pendingVideoId); pendingVideoId = null; } },
+        onStateChange: onPlayerStateChange
+      }
+    });
+  };
+
+  function extractVideoId(url){
+    url = url.trim();
+    const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([a-zA-Z0-9_-]{11})/);
+    if (m) return m[1];
+    if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+    return null;
+  }
+
+  function loadVideo(id, announce){
+    videoPlaceholder.innerHTML = 'Loading video…';
+    videoPlaceholder.style.display = 'flex';
+    clearTimeout(loadTimeoutHandle);
+    loadTimeoutHandle = setTimeout(() => {
+      videoPlaceholder.innerHTML = 'Video failed to load.<br>If you use an ad blocker or Brave Shields, allow youtube.com for this page.<br><button id="retryBtn" type="button">Try again</button>';
+      document.getElementById('retryBtn').onclick = () => loadVideo(id, false);
+    }, 8000);
+    if (playerReady) player.loadVideoById(id); else pendingVideoId = id;
+    if (announce && conn && conn.open) conn.send({type: 'load', videoId: id});
+    logWatched(id);
+    videoDrawer.style.display = 'none';
+  }
+
+  loadBtn.addEventListener('click', () => {
+    const id = extractVideoId(linkInput.value);
+    if (!id) { alert("That doesn't look like a YouTube link."); return; }
+    loadVideo(id, true);
+    linkInput.value = '';
+  });
+
+  queueBtn.addEventListener('click', () => {
+    const id = extractVideoId(queueInput.value);
+    if (!id) { alert("That doesn't look like a YouTube link."); return; }
+    queuedVideoId = id;
+    showToast('Queued — plays automatically after this one ends');
+    queueInput.value = '';
+    videoDrawer.style.display = 'none';
+  });
+
+  rewindBtn.addEventListener('click', () => {
+    if (!player || !playerReady) return;
+    const t = Math.max(0, player.getCurrentTime() - 10);
+    const playing = player.getPlayerState() === YT.PlayerState.PLAYING;
+    applyingRemote = true;
+    player.seekTo(t, true);
+    lastState = {playing, time: t};
+    if (conn && conn.open) conn.send({type: 'state', playing, time: t, note: 'Rewound 10 seconds'});
+    showToast('Rewound 10 seconds');
+    setTimeout(() => { applyingRemote = false; }, 600);
+  });
+
+  function broadcastState(playing){
+    if (!player || !conn || !conn.open) return;
+    conn.send({type: 'state', playing, time: player.getCurrentTime()});
+  }
+
+  function onPlayerStateChange(e){
+    if (e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.BUFFERING || e.data === YT.PlayerState.CUED) {
+      clearTimeout(loadTimeoutHandle);
+      videoPlaceholder.style.display = 'none';
+    }
+    if (applyingRemote) return;
+
+    if (lockState.locked && lockState.by !== myRole) {
+      applyRemoteState(lastState.playing, lastState.time);
+      showToast('Controls are locked by ' + lockState.name);
+      return;
+    }
+
+    if (e.data === YT.PlayerState.PLAYING) { lastState = {playing: true, time: player.getCurrentTime()}; broadcastState(true); }
+    else if (e.data === YT.PlayerState.PAUSED) { lastState = {playing: false, time: player.getCurrentTime()}; broadcastState(false); }
+    else if (e.data === YT.PlayerState.ENDED && queuedVideoId) { const n = queuedVideoId; queuedVideoId = null; loadVideo(n, true); }
+  }
+
+  function applyRemoteState(playing, time, note){
+    if (!player || !playerReady) return;
+    lastState = {playing, time};
+    applyingRemote = true;
+    const myTime = player.getCurrentTime();
+    const diff = time - myTime;
+    if (Math.abs(diff) > 2.5) {
+      player.seekTo(time, true);
+      try { player.setPlaybackRate(1); } catch(err) {}
+    } else if (Math.abs(diff) > 0.4) {
+      try { player.setPlaybackRate(diff > 0 ? 1.1 : 0.9); } catch(err) {}
+      setTimeout(() => { try { player.setPlaybackRate(1); } catch(err) {} }, 1500);
+    }
+    const state = player.getPlayerState();
+    if (playing && state !== YT.PlayerState.PLAYING) player.playVideo();
+    if (!playing && state === YT.PlayerState.PLAYING) player.pauseVideo();
+    if (note) showToast(note);
+    setTimeout(() => { applyingRemote = false; }, 600);
+  }
+
+  setInterval(() => {
+    if (!player || !playerReady || applyingRemote) return;
+    if (player.getPlayerState() === YT.PlayerState.PLAYING) broadcastState(true);
+  }, 2000);
+
+  window.addEventListener('beforeunload', () => { if (conn) conn.close(); if (peer) peer.destroy(); });
+  if (myName && roomRaw) startRoom();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
